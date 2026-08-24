@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Medical Bills · Fortunebolt Pharma HR</title>
+<link rel="stylesheet" href="../../assets/css/tokens.css" />
+<link rel="stylesheet" href="../../assets/css/shell.css" />
+</head>
+<body>
+<script>window.FB_BASE = '../../'; window.FB_PAGE = 'health/medical-bills';</script>
+<div id="fb-page-root">
+  <div class="fb-breadcrumb">Health &amp; Wellness (Clinic)</div>
+  <div class="fb-page-head">
+    <div>
+      <h1>Medical Bills</h1>
+      <p class="fb-page-desc">Upload, verify and approve medical bills, and monitor outstanding balances at each level.</p>
+    </div>
+    <div class="fb-page-actions">
+      <button class="fb-btn fb-btn--primary" id="fb-btn-new-bill">+ Submit bill</button>
+    </div>
+  </div>
+
+  <div class="fb-grid fb-grid--3" id="fb-bill-kpis" style="margin-bottom: var(--fb-sp-5)"></div>
+
+  <div class="fb-card">
+    <div class="fb-card__head"><span class="fb-card__title">All medical bills</span></div>
+    <div id="fb-bill-table"></div>
+  </div>
+</div>
+
+<script src="../../assets/js/db.seed.js"></script>
+<script src="../../assets/js/events.js"></script>
+<script src="../../assets/js/store.js"></script>
+<script src="../../assets/js/components.js"></script>
+<script src="../../assets/js/notifications.js"></script>
+<script src="../../assets/js/auth.js"></script>
+<script src="../../assets/js/shell.js"></script>
+<script src="../../assets/js/pages/medical-bills.js"></script>
+</body>
+</html>

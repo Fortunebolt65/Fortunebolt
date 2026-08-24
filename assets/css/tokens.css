@@ -1,0 +1,171 @@
+/* ==========================================================================
+   Fortunebolt Pharmaceuticals Plc — HR Platform
+   Design tokens: color, type, spacing, radius, shadow, motion.
+   Light palette lives on :root. Dark overrides follow OS preference or an
+   explicit [data-theme] on <html> (see shell.js theme toggle).
+   ========================================================================== */
+
+:root {
+  /* ---- Brand ---- */
+  --fb-brand-50:  #eef7f6;
+  --fb-brand-100: #d3ece8;
+  --fb-brand-200: #a7d9d2;
+  --fb-brand-300: #74c1b6;
+  --fb-brand-400: #3fa295;
+  --fb-brand-500: #157b6e; /* primary */
+  --fb-brand-600: #0f6459;
+  --fb-brand-700: #0c4f47;
+  --fb-brand-800: #093a34;
+  --fb-brand-900: #062824;
+
+  --fb-accent-50:  #fef6ec;
+  --fb-accent-300: #f3b968;
+  --fb-accent-500: #dd8b1f; /* warm accent — PIP / disciplinary / attention */
+  --fb-accent-700: #a4650f;
+
+  /* ---- Semantic status ---- */
+  --fb-status-draft-bg:   #eef0f2;
+  --fb-status-draft-fg:   #51606b;
+  --fb-status-pending-bg: #fdf1d9;
+  --fb-status-pending-fg: #8a5c07;
+  --fb-status-approved-bg:#e1f5ea;
+  --fb-status-approved-fg:#146c3c;
+  --fb-status-rejected-bg:#fbe6e6;
+  --fb-status-rejected-fg:#a3271d;
+  --fb-status-escalated-bg:#fde7d6;
+  --fb-status-escalated-fg:#b1500f;
+  --fb-status-info-bg:    #e6eefc;
+  --fb-status-info-fg:    #1c4ea3;
+
+  /* ---- Neutrals ---- */
+  --fb-bg:            #f5f7f7;
+  --fb-surface:       #ffffff;
+  --fb-surface-raised:#ffffff;
+  --fb-surface-sunken:#f0f3f3;
+  --fb-border:        #e1e6e6;
+  --fb-border-strong: #c8d0d0;
+  --fb-text:          #1a2422;
+  --fb-text-muted:    #57645f;
+  --fb-text-faint:    #8b9793;
+  --fb-text-on-brand: #ffffff;
+  --fb-focus-ring:    #3fa295;
+  --fb-overlay:       rgba(9, 20, 18, 0.48);
+
+  /* ---- Type ---- */
+  --fb-font-sans: 'Segoe UI', ui-sans-serif, system-ui, -apple-system, 'Inter', Arial, sans-serif;
+  --fb-font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  --fb-fs-xs: 0.6875rem;
+  --fb-fs-sm: 0.8125rem;
+  --fb-fs-base: 0.9375rem;
+  --fb-fs-md: 1.0625rem;
+  --fb-fs-lg: 1.25rem;
+  --fb-fs-xl: 1.625rem;
+  --fb-fs-2xl: 2.125rem;
+  --fb-lh-tight: 1.2;
+  --fb-lh-base: 1.5;
+
+  /* ---- Spacing scale ---- */
+  --fb-sp-1: 4px;
+  --fb-sp-2: 8px;
+  --fb-sp-3: 12px;
+  --fb-sp-4: 16px;
+  --fb-sp-5: 20px;
+  --fb-sp-6: 24px;
+  --fb-sp-7: 32px;
+  --fb-sp-8: 40px;
+  --fb-sp-9: 56px;
+
+  /* ---- Radius / shadow / motion ---- */
+  --fb-radius-sm: 6px;
+  --fb-radius-md: 10px;
+  --fb-radius-lg: 16px;
+  --fb-radius-pill: 999px;
+  --fb-shadow-sm: 0 1px 2px rgba(16, 24, 22, 0.06), 0 1px 1px rgba(16,24,22,0.04);
+  --fb-shadow-md: 0 4px 14px rgba(16, 24, 22, 0.09);
+  --fb-shadow-lg: 0 12px 32px rgba(16, 24, 22, 0.16);
+  --fb-motion-fast: 120ms ease;
+  --fb-motion-base: 200ms ease;
+
+  --fb-sidebar-w: 264px;
+  --fb-topbar-h: 60px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --fb-bg: #0d1513;
+    --fb-surface: #131e1b;
+    --fb-surface-raised: #182521;
+    --fb-surface-sunken: #0a100e;
+    --fb-border: #223531;
+    --fb-border-strong: #2d4640;
+    --fb-text: #eaf2f0;
+    --fb-text-muted: #a6b6b1;
+    --fb-text-faint: #708179;
+    --fb-overlay: rgba(0, 0, 0, 0.6);
+
+    --fb-status-draft-bg:   #1e2a27;
+    --fb-status-draft-fg:   #b6c4bf;
+    --fb-status-pending-bg: #3a2c0c;
+    --fb-status-pending-fg: #f3c766;
+    --fb-status-approved-bg:#0f3524;
+    --fb-status-approved-fg:#6bdb9e;
+    --fb-status-rejected-bg:#3a1614;
+    --fb-status-rejected-fg:#f29a92;
+    --fb-status-escalated-bg:#3a2410;
+    --fb-status-escalated-fg:#f5a866;
+    --fb-status-info-bg:    #142a42;
+    --fb-status-info-fg:    #8fb6ec;
+  }
+}
+
+:root[data-theme="dark"] {
+  --fb-bg: #0d1513;
+  --fb-surface: #131e1b;
+  --fb-surface-raised: #182521;
+  --fb-surface-sunken: #0a100e;
+  --fb-border: #223531;
+  --fb-border-strong: #2d4640;
+  --fb-text: #eaf2f0;
+  --fb-text-muted: #a6b6b1;
+  --fb-text-faint: #708179;
+  --fb-overlay: rgba(0, 0, 0, 0.6);
+
+  --fb-status-draft-bg:   #1e2a27;
+  --fb-status-draft-fg:   #b6c4bf;
+  --fb-status-pending-bg: #3a2c0c;
+  --fb-status-pending-fg: #f3c766;
+  --fb-status-approved-bg:#0f3524;
+  --fb-status-approved-fg:#6bdb9e;
+  --fb-status-rejected-bg:#3a1614;
+  --fb-status-rejected-fg:#f29a92;
+  --fb-status-escalated-bg:#3a2410;
+  --fb-status-escalated-fg:#f5a866;
+  --fb-status-info-bg:    #142a42;
+  --fb-status-info-fg:    #8fb6ec;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  background: var(--fb-bg);
+  color: var(--fb-text);
+  font-family: var(--fb-font-sans);
+  font-size: var(--fb-fs-base);
+  line-height: var(--fb-lh-base);
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, h4, h5 { margin: 0 0 var(--fb-sp-2); line-height: var(--fb-lh-tight); font-weight: 600; }
+a { color: var(--fb-brand-600); }
+:root[data-theme="dark"] a, @media (prefers-color-scheme: dark) { }
+button, input, select, textarea { font-family: inherit; font-size: inherit; color: inherit; }
+/* Base theming for any form control, even outside a .fb-field wrapper (e.g. inline filter/sort selects) */
+select, input[type="text"], input[type="search"], input[type="email"], input[type="number"], input[type="date"], textarea {
+  background: var(--fb-surface);
+  color: var(--fb-text);
+  border: 1px solid var(--fb-border-strong);
+  border-radius: var(--fb-radius-sm);
+  padding: 7px 10px;
+}
+:focus-visible { outline: 2px solid var(--fb-focus-ring); outline-offset: 2px; }

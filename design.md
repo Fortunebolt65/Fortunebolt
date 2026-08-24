@@ -1,7 +1,8 @@
 # HR Digitization Platform — Design Reference
 
-Status: **Draft for review** — build has not started. This document is the
-reference we align on before any code is written.
+Status: **Phase 1 (HR Admin POV) built and UAT-passed.** All 24 modules across
+the three units, plus the shared shell/data layer and HR Analytics, are live
+under `/admin`. See §10 for the UAT report and what's queued for Phase 2.
 
 ---
 
@@ -395,3 +396,103 @@ config, not re-architecture.
 
 Reply with corrections, or just say "go" and I'll start Phase 1, Step 1
 (Foundation) from §8.
+
+---
+
+## 10. Phase 1 status: built, tested, ready for your review
+
+All 24 modules from §4 are live, plus the shell, seed data, and HR Analytics
+— nothing in the module inventory was skipped. Open `index.html` (or
+`admin/dashboard.html` directly) in a browser; no build step or server is
+required, though any static server works too.
+
+### What's live
+
+- **Foundation:** design tokens (light/dark), app shell (topbar, sidebar,
+  notification center, global search, mobile nav), the shared `store.js`
+  data layer over `localStorage`, and a reusable component library (tables,
+  kanban, modals, steppers, charts, CSV export).
+- **HRBP unit (9 modules):** Recruitment & Selection (the flagship —
+  requisition → candidate pipeline → assessment → interview → offer →
+  hire → onboarding checklist → active employee), Employee Relations/ESS,
+  Disciplinary Management, Organizational Structure, Exit Management,
+  Interim & Confirmation Appraisals, Guarantor Verification, HRBP
+  Reporting, HR Analytics.
+- **L&D unit (9 modules):** Performance/PIP, Talent Management, Training
+  Needs Analysis, LMS (catalog, enrollments, leaderboard), Correspondence,
+  Evaluation, Curriculum & Schedules, Training Budget, L&D Reporting.
+- **Health & Wellness unit (6 modules):** Medical Bills, Vaccinations,
+  Medical Records (with MRB/HHR/FM/OD/SMD incident notification), Drug
+  Requisition, Sick Leave/Excuse Duty, Health Reporting.
+- **Cross-module wiring**, all verified working end-to-end (§6.3): offer
+  acceptance creates the employee + onboarding checklist; completing
+  onboarding activates the employee and fires a company-wide welcome;
+  annual appraisals under 70% surface a one-click "generate PIP, notify
+  L&D" action; TNA approval promotes a need into the Training Plan *and*
+  creates the LMS enrollment; completing a course generates the
+  pre/training/post evaluation chain; disciplinary and exit actions update
+  the employee record and headcount everywhere else; HR Analytics reads
+  all of the above live with no separate copy of the data.
+- **Real, working CSV export** on every reporting page (no backend needed
+  for this — it's a genuine client-side download).
+
+### UAT / exploratory testing performed
+
+- Full crawl of all 25 nav-reachable pages: 200 status, correct active-nav
+  highlighting, zero console/page errors on every one.
+- Ran the flagship recruitment pipeline through the actual UI end-to-end
+  (new candidate → interview → offer → hire → onboarding → activation) and
+  confirmed every downstream module updated correctly.
+- Exercised modals, tabs, kanban drag-free interactions, filters, and
+  search on every module at least once; confirmed global search +
+  `?focus=` deep-linking opens the right record from the Dashboard and
+  from search results.
+- Verified data persistence across a hard page reload (localStorage), and
+  that "Reset demo data" restores the exact seeded baseline.
+- Verified all 10 CSV export buttons across HRBP/L&D/Health reporting
+  produce real downloads.
+- Verified dark mode toggles correctly and persists across navigation.
+- Verified modal dismissal via Escape and outside-click.
+
+### Bugs found and fixed during UAT
+
+1. **`FB.ui.toast` didn't exist** (toast lives on `FB.notifications`) —
+   every module called it as `ui.toast(...)`. Fixed with a lazy-resolved
+   alias in `components.js` rather than patching ~18 call sites, so it's
+   fixed for every current and future page.
+2. **Mobile navigation was unreachable.** The CSS had a collapsed-sidebar
+   state but no hamburger button wired up to open it. Added the button,
+   the toggle logic, and a tap-outside-to-close backdrop.
+3. **Horizontal scroll/overflow on narrow viewports.** The topbar's flex
+   children didn't shrink below their content width, pushing the
+   notification bell and user menu off-screen (present but unreachable,
+   not just visually clipped). Fixed with `min-width: 0` on the flexed
+   search container, a responsive collapse of the search bar and brand
+   text under 960px, and a defensive `overflow-x: hidden` on `html/body`.
+4. **Dark-mode contrast bug on bare `<select>` elements** (the HR
+   Analytics report-builder dropdowns, the Recruitment pipeline-requisition
+   picker): these lived outside the `.fb-field` wrapper that carried the
+   form-control theming, so they fell back to the browser's light-mode
+   default background — light text on a light background in dark mode.
+   Fixed by moving the theming to a base rule on the bare elements
+   (`select`, text/search/date/number inputs, `textarea`) so any current
+   or future control is themed correctly regardless of wrapper.
+
+No other console errors, broken links, or dead cross-module references
+turned up across the pass.
+
+### Assumptions carried over from §9 (unresolved — flagging again)
+
+Branding and hosting intent (§9.1–9.2) were never answered, so I kept the
+defaults stated there (fictional "Fortunebolt Pharmaceuticals Plc"; static
+site with an isolated data layer). Say the word if either should change —
+the branding one is cheap to redo now, expensive to redo after Phase 2.
+
+### Next: Phase 2
+
+Once you've clicked through this and flagged anything you want changed,
+Phase 2 adds the other POVs from §5 (Employee self-service, Line
+Manager/HOD, HRBP-scoped, L&D specialist, Clinic nurse, Finance approver,
+Recruiter) as additional views over this same `store.js` data — the role
+enum and data model already anticipate this, so it's additive, not a
+rebuild.

@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dashboard · Fortunebolt Pharma HR</title>
+<link rel="stylesheet" href="../assets/css/tokens.css" />
+<link rel="stylesheet" href="../assets/css/shell.css" />
+</head>
+<body>
+<script>window.FB_BASE = '../'; window.FB_PAGE = 'dashboard';</script>
+<div id="fb-page-root">
+  <div class="fb-breadcrumb">Overview</div>
+  <div class="fb-page-head">
+    <div>
+      <h1 id="fb-greeting">Welcome back</h1>
+      <p class="fb-page-desc">A live snapshot across HR Business Partnering, Learning &amp; Development, and Health &amp; Wellness — every number here is read from the same records the modules below write to.</p>
+    </div>
+    <div class="fb-page-actions">
+      <a class="fb-btn fb-btn--primary" href="hrbp/recruitment.html">Go to Recruitment</a>
+    </div>
+  </div>
+
+  <div class="fb-card" style="background: var(--fb-status-info-bg); border-color: transparent;">
+    <div class="fb-flex-between">
+      <div>
+        <div class="fb-bold" style="color: var(--fb-status-info-fg)">See the modules talk to each other</div>
+        <div class="fb-small" style="color: var(--fb-status-info-fg)">Ifeoma Chukwu accepted her Medical Sales Representative offer 4 days ago — watch her move from Recruitment → Onboarding → the Employee Directory.</div>
+      </div>
+      <a class="fb-btn fb-btn--sm" href="hrbp/recruitment.html?focus=REQ-0001" style="background:#fff">Open her requisition</a>
+    </div>
+  </div>
+
+  <div class="fb-grid fb-grid--4" id="fb-kpi-row" style="margin-top: var(--fb-sp-5)"></div>
+
+  <div class="fb-grid fb-grid--3" style="margin-top: var(--fb-sp-5)">
+    <div class="fb-card">
+      <div class="fb-card__head"><span class="fb-card__title">HR Business Partnering</span><span>🤝</span></div>
+      <div id="fb-unit-hrbp"></div>
+      <a class="fb-btn fb-btn--ghost fb-btn--sm" style="margin-top:12px" href="hrbp/recruitment.html">Open unit →</a>
+    </div>
+    <div class="fb-card">
+      <div class="fb-card__head"><span class="fb-card__title">Learning &amp; Development</span><span>🎓</span></div>
+      <div id="fb-unit-ld"></div>
+      <a class="fb-btn fb-btn--ghost fb-btn--sm" style="margin-top:12px" href="ld/performance-pip.html">Open unit →</a>
+    </div>
+    <div class="fb-card">
+      <div class="fb-card__head"><span class="fb-card__title">Health &amp; Wellness</span><span>🩺</span></div>
+      <div id="fb-unit-health"></div>
+      <a class="fb-btn fb-btn--ghost fb-btn--sm" style="margin-top:12px" href="health/medical-bills.html">Open unit →</a>
+    </div>
+  </div>
+
+  <div class="fb-grid fb-grid--2" style="margin-top: var(--fb-sp-5); align-items: start;">
+    <div class="fb-card">
+      <div class="fb-card__head"><span class="fb-card__title">Requisitions by stage</span></div>
+      <div id="fb-req-chart"></div>
+    </div>
+    <div class="fb-card">
+      <div class="fb-card__head"><span class="fb-card__title">Recent activity</span></div>
+      <div id="fb-activity"></div>
+    </div>
+  </div>
+</div>
+
+<script src="../assets/js/db.seed.js"></script>
+<script src="../assets/js/events.js"></script>
+<script src="../assets/js/store.js"></script>
+<script src="../assets/js/components.js"></script>
+<script src="../assets/js/notifications.js"></script>
+<script src="../assets/js/auth.js"></script>
+<script src="../assets/js/shell.js"></script>
+<script>
+FB.events.on('shell:ready', function () {
+  var store = FB.store, ui = FB.ui;
+  var session = FB.auth.currentSession();
+  document.getElementById('fb-greeting').textContent = 'Welcome back, ' + session.employee.firstName;
+
+  var employees = store.get('employees');
+  var active = employees.filter(function (e) { return e.status === 'Active' || e.status === 'On PIP'; });
+  var requisitions = store.get('requisitions');
+  var openReqs = requisitions.filter(function (r) { return r.status === 'Approved'; });
+  var candidates = store.get('candidates');
+  var inPipeline = candidates.filter(function (c) { return !['Hired', 'Rejected'].includes(c.status); });
+  var pendingDisc = store.get('disciplinaryCases').filter(function (d) { return d.status.indexOf('Pending') === 0; });
+  var pendingWelfare = store.get('welfareRequests').filter(function (w) { return w.status.indexOf('Pending') === 0; });
+  var pendingSick = store.get('sickLeaveRequests').filter(function (s) { return s.status.indexOf('Pending') === 0; });
+  var pendingApprovals = pendingDisc.length + pendingWelfare.length + pendingSick.length + requisitions.filter(function (r) { return r.status === 'Pending Approval'; }).length;
+  var onPip = employees.filter(function (e) { return e.status === 'On PIP'; }).length;
+  var exiting = store.get('exitCases').filter(function (x) { return x.status === 'In Progress'; }).length;
+
+  document.getElementById('fb-kpi-row').innerHTML = [
+    ui.statCardHtml({ label: 'Active headcount', value: active.length, sub: employees.length + ' total staff records' }),
+    ui.statCardHtml({ label: 'Open requisitions', value: openReqs.length, delta: candidates.length + ' candidates total', deltaDirection: 'flat' }),
+    ui.statCardHtml({ label: 'Candidates in pipeline', value: inPipeline.length, sub: 'across all open roles' }),
+    ui.statCardHtml({ label: 'Pending approvals', value: pendingApprovals, delta: pendingApprovals > 0 ? 'needs attention' : 'all clear', deltaDirection: pendingApprovals > 0 ? 'down' : 'up' })
+  ].join('');
+
+  document.getElementById('fb-unit-hrbp').innerHTML =
+    '<div class="fb-small fb-muted">' + openReqs.length + ' open requisitions · ' + exiting + ' exit in progress · ' + pendingDisc.length + ' disciplinary case(s) pending review</div>';
+  var courses = store.get('courses'), enrollments = store.get('enrollments');
+  var completedTraining = enrollments.filter(function (e) { return e.status === 'Completed'; }).length;
+  document.getElementById('fb-unit-ld').innerHTML =
+    '<div class="fb-small fb-muted">' + courses.length + ' courses live · ' + enrollments.length + ' enrollments · ' + completedTraining + ' completions this cycle</div>';
+  var outstandingBills = store.get('medicalBills').filter(function (b) { return b.status === 'Outstanding'; }).length;
+  var overdueVax = store.get('vaccinationSchedules').filter(function (v) { return v.status === 'Overdue'; }).length;
+  document.getElementById('fb-unit-health').innerHTML =
+    '<div class="fb-small fb-muted">' + outstandingBills + ' outstanding medical bill(s) · ' + overdueVax + ' overdue vaccination(s) · ' + pendingSick.length + ' sick leave request(s) pending</div>';
+
+  var stageOrder = ['Applied', 'Screening', 'Shortlisted', 'Testing', 'Interviewing', 'Offer', 'Hired'];
+  var counts = stageOrder.map(function (s) { return candidates.filter(function (c) { return c.status === s || (s === 'Offer' && c.status === 'Offer'); }).length; });
+  ui.barChart(document.getElementById('fb-req-chart'), { labels: stageOrder, values: counts });
+
+  var recent = store.get('notifications').slice().sort(function (a, b) { return new Date(b.createdAt) - new Date(a.createdAt); }).slice(0, 6);
+  ui.timeline(document.getElementById('fb-activity'), recent.map(function (n) { return { title: n.title, meta: n.module + ' · ' + FB.notifications.timeAgo(n.createdAt) }; }));
+});
+</script>
+</body>
+</html>

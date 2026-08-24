@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>L&D Reporting · Fortunebolt Pharma HR</title>
+<link rel="stylesheet" href="../../assets/css/tokens.css" />
+<link rel="stylesheet" href="../../assets/css/shell.css" />
+</head>
+<body>
+<script>window.FB_BASE = '../../'; window.FB_PAGE = 'ld/reporting';</script>
+<div id="fb-page-root">
+  <div class="fb-breadcrumb">Learning &amp; Development</div>
+  <div class="fb-page-head">
+    <div>
+      <h1>L&amp;D Reporting</h1>
+      <p class="fb-page-desc">Training reports pulled live from TNA, LMS, Evaluation and Budget — each exports a real CSV.</p>
+    </div>
+  </div>
+
+  <div class="fb-grid fb-grid--2">
+    <div class="fb-card">
+      <div class="fb-card__head"><span class="fb-card__title">Course popularity (enrollments)</span><button class="fb-btn fb-btn--sm" data-export="popularity">Export CSV</button></div>
+      <div id="rp-popularity"></div>
+    </div>
+    <div class="fb-card">
+      <div class="fb-card__head"><span class="fb-card__title">Departmental training report</span><button class="fb-btn fb-btn--sm" data-export="dept">Export CSV</button></div>
+      <div id="rp-dept"></div>
+    </div>
+    <div class="fb-card">
+      <div class="fb-card__head"><span class="fb-card__title">Training needs funnel</span><button class="fb-btn fb-btn--sm" data-export="tna">Export CSV</button></div>
+      <div id="rp-tna"></div>
+    </div>
+    <div class="fb-card">
+      <div class="fb-card__head"><span class="fb-card__title">Internal vs. external delivery</span><button class="fb-btn fb-btn--sm" data-export="delivery">Export CSV</button></div>
+      <div id="rp-delivery"></div>
+    </div>
+    <div class="fb-card">
+      <div class="fb-card__head"><span class="fb-card__title">Pre &amp; post training score comparison</span><button class="fb-btn fb-btn--sm" data-export="prepost">Export CSV</button></div>
+      <div id="rp-prepost"></div>
+    </div>
+    <div class="fb-card">
+      <div class="fb-card__head"><span class="fb-card__title">Budget utilization</span></div>
+      <div id="rp-budget"></div>
+    </div>
+  </div>
+</div>
+
+<script src="../../assets/js/db.seed.js"></script>
+<script src="../../assets/js/events.js"></script>
+<script src="../../assets/js/store.js"></script>
+<script src="../../assets/js/components.js"></script>
+<script src="../../assets/js/notifications.js"></script>
+<script src="../../assets/js/auth.js"></script>
+<script src="../../assets/js/shell.js"></script>
+<script src="../../assets/js/pages/ld-reporting.js"></script>
+</body>
+</html>

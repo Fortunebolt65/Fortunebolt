@@ -153,7 +153,7 @@
   // ---------------- Modal ----------------
   let overlayEl = null;
   function ensureOverlay() {
-    if (overlayEl) return overlayEl;
+    if (overlayEl && document.body.contains(overlayEl)) return overlayEl;
     overlayEl = document.createElement('div');
     overlayEl.className = 'fb-overlay';
     overlayEl.innerHTML = '<div class="fb-modal" data-fb-modal></div>';

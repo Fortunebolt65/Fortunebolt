@@ -70,7 +70,7 @@
 
   let toastHost = null;
   function toast(message, type) {
-    if (!toastHost) {
+    if (!toastHost || !document.body.contains(toastHost)) {
       toastHost = document.createElement('div');
       toastHost.className = 'fb-toast-stack';
       document.body.appendChild(toastHost);

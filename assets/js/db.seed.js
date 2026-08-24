@@ -430,13 +430,13 @@
 
     // ---------------- Notifications (simulated email/SMS feed) ----------------
     const notifications = [
-      { id: nid('NOT', 'notif'), title: 'PIP auto-generated for Chukwuemeka Nnamdi', body: 'Annual appraisal scored 58% (below 70% threshold). L&D has been notified for coaching support.', module: 'Performance', link: '/admin/ld/performance-pip.html', read: false, createdAt: daysAgo(40) },
-      { id: nid('NOT', 'notif'), title: 'Offer accepted — Ifeoma Chukwu', body: 'Candidate accepted the Medical Sales Representative offer. Onboarding checklist created.', module: 'Recruitment', link: '/admin/hrbp/recruitment.html', read: false, createdAt: daysAgo(7) },
-      { id: nid('NOT', 'notif'), title: 'Requisition ERP Analyst pending your approval', body: 'IT HOD submitted a new requisition for ERP Analyst (Grade: Senior Officer).', module: 'Recruitment', link: '/admin/hrbp/recruitment.html', read: true, createdAt: daysAgo(3) },
-      { id: nid('NOT', 'notif'), title: 'Resignation received — Yetunde Balogun', body: 'Financial Accountant submitted resignation. Last working day in 16 days. Clearance in progress.', module: 'Exit Management', link: '/admin/hrbp/exit-management.html', read: true, createdAt: daysAgo(14) },
-      { id: nid('NOT', 'notif'), title: 'Disciplinary query pending HR review', body: 'Warehouse Officer Babatunde Okunola — repeated late clock-in. Awaiting HR counter-recommendation.', module: 'Disciplinary', link: '/admin/hrbp/disciplinary.html', read: true, createdAt: daysAgo(6) },
-      { id: nid('NOT', 'notif'), title: 'Drug requisition awaiting approval', body: 'Clinic submitted a drug requisition for essential medicines restock.', module: 'Health & Wellness', link: '/admin/health/drug-requisition.html', read: true, createdAt: daysAgo(2) },
-      { id: nid('NOT', 'notif'), title: 'Acting Confirmation recommended — Nseobong Etuk', body: 'Acting QA/QC Manager scored 88% on acting-confirmation evaluation. Recommended for substantive confirmation.', module: 'Performance', link: '/admin/hrbp/performance-confirmation.html', read: true, createdAt: daysAgo(12) }
+      { id: nid('NOT', 'notif'), title: 'PIP auto-generated for Chukwuemeka Nnamdi', body: 'Annual appraisal scored 58% (below 70% threshold). L&D has been notified for coaching support.', module: 'Performance', link: 'admin/ld/performance-pip.html', read: false, createdAt: daysAgo(40) },
+      { id: nid('NOT', 'notif'), title: 'Offer accepted — Ifeoma Chukwu', body: 'Candidate accepted the Medical Sales Representative offer. Onboarding checklist created.', module: 'Recruitment', link: 'admin/hrbp/recruitment.html', read: false, createdAt: daysAgo(7) },
+      { id: nid('NOT', 'notif'), title: 'Requisition ERP Analyst pending your approval', body: 'IT HOD submitted a new requisition for ERP Analyst (Grade: Senior Officer).', module: 'Recruitment', link: 'admin/hrbp/recruitment.html', read: true, createdAt: daysAgo(3) },
+      { id: nid('NOT', 'notif'), title: 'Resignation received — Yetunde Balogun', body: 'Financial Accountant submitted resignation. Last working day in 16 days. Clearance in progress.', module: 'Exit Management', link: 'admin/hrbp/exit-management.html', read: true, createdAt: daysAgo(14) },
+      { id: nid('NOT', 'notif'), title: 'Disciplinary query pending HR review', body: 'Warehouse Officer Babatunde Okunola — repeated late clock-in. Awaiting HR counter-recommendation.', module: 'Disciplinary', link: 'admin/hrbp/disciplinary.html', read: true, createdAt: daysAgo(6) },
+      { id: nid('NOT', 'notif'), title: 'Drug requisition awaiting approval', body: 'Clinic submitted a drug requisition for essential medicines restock.', module: 'Health & Wellness', link: 'admin/health/drug-requisition.html', read: true, createdAt: daysAgo(2) },
+      { id: nid('NOT', 'notif'), title: 'Acting Confirmation recommended — Nseobong Etuk', body: 'Acting QA/QC Manager scored 88% on acting-confirmation evaluation. Recommended for substantive confirmation.', module: 'Performance', link: 'admin/hrbp/performance-confirmation.html', read: true, createdAt: daysAgo(12) }
     ];
 
     const auditLog = [
@@ -445,7 +445,7 @@
     ];
 
     return {
-      _meta: { seedVersion: 5, generatedAt: now, company: 'Fortunebolt Pharmaceuticals Plc' },
+      _meta: { seedVersion: 6, generatedAt: now, company: 'Fortunebolt Pharmaceuticals Plc' },
       currentUserId: admin.id,
       departments: DEPARTMENTS, hrUnits: HR_UNITS, cadres: CADRES,
       employees, requisitions, candidates, assessments, interviews, offers, onboardingTasks,

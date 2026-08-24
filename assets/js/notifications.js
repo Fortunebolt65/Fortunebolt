@@ -39,8 +39,9 @@
       list.innerHTML = '<div class="fb-notif-panel__empty">No notifications yet.</div>';
       return;
     }
+    const base = global.FB_BASE || '';
     list.innerHTML = items.map((n) => `
-      <a href="${n.link || '#'}" class="fb-notif-item ${n.read ? '' : 'is-unread'}" data-fb-notif-id="${n.id}">
+      <a href="${n.link ? base + n.link : '#'}" class="fb-notif-item ${n.read ? '' : 'is-unread'}" data-fb-notif-id="${n.id}">
         <div class="fb-notif-item__icon">${moduleIcon(n.module)}</div>
         <div>
           <div class="fb-notif-item__title">${escapeHtml(n.title)}</div>

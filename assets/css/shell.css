@@ -220,6 +220,53 @@
 .fb-close-btn { width: 30px; height: 30px; border-radius: var(--fb-radius-sm); border: none; background: transparent; color: var(--fb-text-muted); cursor: pointer; font-size: 16px; }
 .fb-close-btn:hover { background: var(--fb-surface-sunken); }
 
+/* ---------- Drawer (large slide-over — record detail & creation) ---------- */
+.fb-drawer-overlay { position: fixed; inset: 0; background: var(--fb-overlay); display: none; z-index: 110; }
+.fb-drawer-overlay.is-open { display: block; }
+.fb-drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; width: 720px; max-width: 94vw;
+  background: var(--fb-surface); box-shadow: var(--fb-shadow-lg); display: flex; flex-direction: column;
+  transform: translateX(100%); transition: transform 240ms ease;
+}
+.fb-drawer-overlay.is-open .fb-drawer { transform: translateX(0); }
+.fb-drawer--xl { width: 920px; }
+.fb-drawer__head { padding: 22px 30px 0; flex: none; }
+.fb-drawer__title-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; padding-bottom: 18px; border-bottom: 1px solid var(--fb-border); }
+.fb-drawer__head .fb-tabs { margin: 14px 0 0; border-bottom: none; padding-bottom: 18px; }
+.fb-drawer__title { font-size: 1.3rem; font-weight: 700; line-height: 1.25; }
+.fb-drawer__subtitle { font-size: var(--fb-fs-sm); color: var(--fb-text-muted); margin-top: 4px; }
+.fb-drawer__body { flex: 1; overflow-y: auto; padding: 26px 30px; }
+.fb-drawer__foot { padding: 16px 30px; border-top: 1px solid var(--fb-border); display: flex; justify-content: space-between; align-items: center; gap: 8px; background: var(--fb-surface); flex: none; }
+.fb-drawer__foot-left { display: flex; gap: 8px; }
+.fb-drawer__foot-right { display: flex; gap: 8px; margin-left: auto; }
+@media (max-width: 720px) { .fb-drawer, .fb-drawer--xl { width: 100vw; max-width: 100vw; } }
+
+.fb-field-row--3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--fb-sp-4); }
+@media (max-width: 640px) { .fb-field-row--3 { grid-template-columns: 1fr; } }
+.fb-form-card { border: 1px solid var(--fb-border); border-radius: var(--fb-radius-md); padding: var(--fb-sp-4); margin-bottom: var(--fb-sp-4); background: var(--fb-surface-sunken); }
+.fb-form-card__title { font-weight: 700; font-size: var(--fb-fs-sm); margin-bottom: var(--fb-sp-3); display: flex; align-items: center; gap: 8px; }
+.fb-detail-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px 24px; }
+@media (max-width: 560px) { .fb-detail-grid { grid-template-columns: 1fr; } }
+.fb-detail-item__label { font-size: var(--fb-fs-xs); text-transform: uppercase; letter-spacing: .04em; color: var(--fb-text-faint); font-weight: 700; margin-bottom: 3px; }
+.fb-detail-item__value { font-size: var(--fb-fs-base); font-weight: 600; }
+.fb-attachment { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--fb-border); border-radius: var(--fb-radius-sm); font-size: var(--fb-fs-sm); background: var(--fb-surface); margin-bottom: 6px; }
+.fb-attachment__icon { color: var(--fb-text-faint); }
+
+/* ---------- Approval workflow timeline (rich audit trail) ---------- */
+.fb-approval-list { list-style: none; margin: 0; padding: 0; }
+.fb-approval-step { display: flex; gap: 14px; padding-bottom: 22px; position: relative; }
+.fb-approval-step:last-child { padding-bottom: 0; }
+.fb-approval-step:not(:last-child)::before { content: ""; position: absolute; left: 15px; top: 32px; bottom: 0; width: 2px; background: var(--fb-border); }
+.fb-approval-step__icon { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; flex: none; z-index: 1; }
+.fb-approval-step__icon--done { background: var(--fb-status-approved-bg); color: var(--fb-status-approved-fg); }
+.fb-approval-step__icon--current { background: var(--fb-status-pending-bg); color: var(--fb-status-pending-fg); }
+.fb-approval-step__icon--pending { background: var(--fb-surface); color: var(--fb-text-faint); border: 2px dashed var(--fb-border-strong); }
+.fb-approval-step__icon--rejected { background: var(--fb-status-rejected-bg); color: var(--fb-status-rejected-fg); }
+.fb-approval-step__body { flex: 1; padding-top: 4px; min-width: 0; }
+.fb-approval-step__stage { font-weight: 700; font-size: var(--fb-fs-sm); }
+.fb-approval-step__meta { font-size: var(--fb-fs-xs); color: var(--fb-text-faint); margin-top: 2px; }
+.fb-approval-step__comment { font-size: var(--fb-fs-sm); color: var(--fb-text-muted); margin-top: 8px; background: var(--fb-surface-sunken); padding: 10px 14px; border-radius: var(--fb-radius-sm); }
+
 /* ---------- Notification panel ---------- */
 .fb-notif-panel {
   position: absolute; top: calc(var(--fb-topbar-h) + 8px); right: var(--fb-sp-5); width: 360px; max-height: 70vh;

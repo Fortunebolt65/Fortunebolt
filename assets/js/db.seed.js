@@ -192,14 +192,58 @@
     const offers = [];
     const onboardingTasks = [];
 
+    const nameOf = (e) => (e ? `${e.firstName} ${e.lastName}` : 'System');
+    // Requisition approval chain: Submitted -> HRBP Review -> Head of HR Approval -> Approved (or Rejected at either review)
+    function requisitionHistory(status, requester, createdAt, opts) {
+      opts = opts || {};
+      const steps = [{ stage: 'Submitted', actor: nameOf(requester), actorRole: requester ? requester.jobTitle : '', action: 'Submitted requisition', comment: opts.justification || '', timestamp: createdAt, status: 'done' }];
+      if (status === 'Draft') return steps.slice(0, 0); // draft has no submission event yet
+      if (status === 'Pending Approval' && opts.pendingStage === 'HRBP Review') return steps;
+      const hrbpDate = new Date(new Date(createdAt).getTime() + 2 * 86400000).toISOString().slice(0, 10);
+      steps.push({ stage: 'HRBP Review', actor: nameOf(hrbp2), actorRole: hrbp2.jobTitle, action: status === 'Rejected' && opts.rejectedAt === 'HRBP Review' ? 'Rejected' : 'Endorsed', comment: opts.hrbpComment || 'Reviewed against approved headcount plan — endorsed.', timestamp: hrbpDate, status: status === 'Rejected' && opts.rejectedAt === 'HRBP Review' ? 'rejected' : 'done' });
+      if (status === 'Rejected' && opts.rejectedAt === 'HRBP Review') return steps;
+      if (status === 'Pending Approval' && opts.pendingStage === 'Head of HR Approval') return steps;
+      const hodDate = new Date(new Date(createdAt).getTime() + 4 * 86400000).toISOString().slice(0, 10);
+      steps.push({ stage: 'Head of HR Approval', actor: nameOf(hrHead), actorRole: hrHead.jobTitle, action: status === 'Rejected' ? 'Rejected' : 'Approved', comment: opts.hrComment || (status === 'Rejected' ? 'Declined — headcount not available this cycle.' : 'Approved. Headcount confirmed against FY26 budget.'), timestamp: hodDate, status: status === 'Rejected' ? 'rejected' : 'done' });
+      return steps;
+    }
     function makeRequisition(o) {
+      const requester = o.requestedByEmp || deptHeads['DPT-MFG'];
       const r = Object.assign({
         id: nid('REQ', 'req'), title: 'Officer', departmentId: 'DPT-MFG', cadreId: 'CAD-1', headcount: 1,
-        justification: 'Backfill for approved headcount.', status: 'Approved',
-        requestedBy: deptHeads['DPT-MFG'].id, approvedBy: hrHead.id, createdAt: daysAgo(30)
+        justification: 'Backfill for approved headcount.', status: 'Approved', pendingStage: null, delegateApproverId: null,
+        requestedBy: deptHeads['DPT-MFG'].id, approvedBy: hrHead.id, createdAt: daysAgo(30), approvalHistory: []
       }, o);
+      if (!o.approvalHistory) r.approvalHistory = requisitionHistory(r.status, requester, r.createdAt, { justification: r.justification, pendingStage: r.pendingStage });
+      delete r.requestedByEmp;
       requisitions.push(r);
       return r;
+    }
+    const CANDIDATE_STAGE_SEQUENCE = ['Applied', 'Screening', 'Shortlisted', 'Testing', 'Interviewing', 'Offer', 'Hired'];
+    const CANDIDATE_STAGE_NOTES = {
+      Applied: ['Application received via', 'Automated screening queued against role criteria.'],
+      Screening: ['Passed automated screening', 'Meets minimum education & experience criteria — forwarded for BP review.'],
+      Shortlisted: ['Shortlisted', 'Manually reviewed and shortlisted by the business partner.'],
+      Testing: ['Sent for assessment', 'Role-specific assessment test assigned.'],
+      Interviewing: ['Interview scheduled', 'Panel interview scheduled with hiring manager and HRBP.'],
+      Offer: ['Moved to offer stage', 'Interview feedback positive — proceeding to offer.'],
+      Hired: ['Offer accepted', 'Candidate signed offer letter and converted to employee record.']
+    };
+    function candidateHistory(status, appliedAt, source) {
+      if (status === 'Rejected') {
+        return chainAt([
+          ['Applied', null, 0, CANDIDATE_STAGE_NOTES.Applied[0] + ' ' + source, CANDIDATE_STAGE_NOTES.Applied[1]],
+          ['Screening', hrbp2, 1, 'Not progressed', 'Did not meet minimum criteria for this role.', 'rejected']
+        ], appliedAt);
+      }
+      const upTo = CANDIDATE_STAGE_SEQUENCE.indexOf(status);
+      const steps = CANDIDATE_STAGE_SEQUENCE.slice(0, upTo + 1).map((stage, i) => {
+        const notes = CANDIDATE_STAGE_NOTES[stage];
+        const actor = stage === 'Applied' ? null : hrbp2;
+        const action = i === 0 ? notes[0] + ' ' + source : notes[0];
+        return [stage, actor, i, action, notes[1]];
+      });
+      return chainAt(steps, appliedAt);
     }
     function makeCandidate(o) {
       const first = pick(FIRST_NAMES), last = pick(LAST_NAMES);
@@ -209,12 +253,13 @@
         education: pick(['B.Pharm, University of Lagos', 'B.Sc Microbiology, UNN', 'HND Business Admin, YabaTech', 'B.Sc Chemistry, OAU', 'MBA, Lagos Business School']),
         workHistory: `${int(1, 8)} years relevant experience`, status: 'Applied', appliedAt: daysAgo(int(2, 25))
       }, o);
+      if (!o.approvalHistory) c.approvalHistory = candidateHistory(c.status, c.appliedAt, c.source);
       candidates.push(c);
       return c;
     }
 
     // Flagship requisition #1 — full pipeline to hire, feeds the Onboarding module & new employee above
-    const req1 = makeRequisition({ title: 'Medical Sales Representative', departmentId: 'DPT-SNM', cadreId: 'CAD-2', headcount: 2, justification: 'Territory expansion into North-Central region.', requestedBy: deptHeads['DPT-SNM'].id, approvedBy: hrHead.id, createdAt: daysAgo(38), status: 'Approved' });
+    const req1 = makeRequisition({ title: 'Medical Sales Representative', departmentId: 'DPT-SNM', cadreId: 'CAD-2', headcount: 2, justification: 'Territory expansion into North-Central region.', requestedBy: deptHeads['DPT-SNM'].id, requestedByEmp: deptHeads['DPT-SNM'], approvedBy: hrHead.id, createdAt: daysAgo(38), status: 'Approved' });
     const c1 = makeCandidate({ name: 'Ifeoma Chukwu', email: newHire.email, status: 'Hired', requisitionId: req1.id, appliedAt: daysAgo(32), source: 'Careers Page' });
     c1.linkedEmployeeId = newHire.id;
     assessments.push({ id: nid('TST', 'test'), candidateId: c1.id, testName: 'Sales Aptitude & Product Knowledge Test', score: 84, status: 'Passed', takenAt: daysAgo(24) });
@@ -228,7 +273,7 @@
     interviews.push({ id: nid('INT', 'intv'), candidateId: c1b.id, requisitionId: req1.id, date: daysFromNow(3), interviewers: [deptHeads['DPT-SNM'].id], feedback: '', score: null, status: 'Scheduled' });
 
     // Requisition #2 — mid pipeline (screening/shortlist/testing) across QA/QC
-    const req2 = makeRequisition({ title: 'QC Analyst', departmentId: 'DPT-QAQ', cadreId: 'CAD-1', headcount: 1, justification: 'New line validation workload.', requestedBy: deptHeads['DPT-QAQ'].id, status: 'Approved', createdAt: daysAgo(20) });
+    const req2 = makeRequisition({ title: 'QC Analyst', departmentId: 'DPT-QAQ', cadreId: 'CAD-1', headcount: 1, justification: 'New line validation workload.', requestedBy: deptHeads['DPT-QAQ'].id, requestedByEmp: deptHeads['DPT-QAQ'], status: 'Approved', createdAt: daysAgo(20) });
     makeCandidate({ requisitionId: req2.id, status: 'Shortlisted' });
     const q2c = makeCandidate({ requisitionId: req2.id, status: 'Testing' });
     assessments.push({ id: nid('TST', 'test'), candidateId: q2c.id, testName: 'QC Technical Assessment', score: null, status: 'Scheduled', takenAt: daysFromNow(2) });
@@ -236,10 +281,10 @@
     makeCandidate({ requisitionId: req2.id, status: 'Rejected' });
 
     // Requisition #3 — pending approval (tests the requisition workflow itself)
-    const req3 = makeRequisition({ title: 'ERP Analyst', departmentId: 'DPT-ITS', cadreId: 'CAD-2', headcount: 1, justification: 'Support ongoing HR digitization rollout.', requestedBy: deptHeads['DPT-ITS'].id, status: 'Pending Approval', createdAt: daysAgo(3), approvedBy: null });
+    const req3 = makeRequisition({ title: 'ERP Analyst', departmentId: 'DPT-ITS', cadreId: 'CAD-2', headcount: 1, justification: 'Support ongoing HR digitization rollout.', requestedBy: deptHeads['DPT-ITS'].id, requestedByEmp: deptHeads['DPT-ITS'], status: 'Pending Approval', pendingStage: 'HRBP Review', createdAt: daysAgo(3), approvedBy: null });
 
     // Requisition #4 — draft
-    const req4 = makeRequisition({ title: 'Production Officer', departmentId: 'DPT-MFG', cadreId: 'CAD-1', headcount: 3, justification: 'New shift line for antimalarial batch scale-up.', requestedBy: deptHeads['DPT-MFG'].id, status: 'Draft', createdAt: daysAgo(1), approvedBy: null });
+    const req4 = makeRequisition({ title: 'Production Officer', departmentId: 'DPT-MFG', cadreId: 'CAD-1', headcount: 3, justification: 'New shift line for antimalarial batch scale-up.', requestedBy: deptHeads['DPT-MFG'].id, requestedByEmp: deptHeads['DPT-MFG'], status: 'Draft', createdAt: daysAgo(1), approvedBy: null });
 
     // A handful of extra light candidates on req2 for volume in list views
     for (let i = 0; i < 3; i++) makeCandidate({ requisitionId: req2.id, status: pick(['Applied', 'Screening']) });
@@ -248,15 +293,42 @@
     const appraisals = [];
     function makeAppraisal(o) {
       const a = Object.assign({ id: nid('APR', 'apr'), type: 'Annual', period: '2026 H1', score: null, status: 'Draft', reviewerId: null, resultNotes: '', createdAt: daysAgo(10) }, o);
+      if (!a.approvalHistory) {
+        const reviewer = a.reviewerId ? employee_ref(a.reviewerId) : null;
+        const steps = [];
+        if (a.status !== 'Draft') steps.push(['Submitted for Review', reviewer, 0, 'Submitted', a.resultNotes || `${a.type} appraisal submitted.`, 'done']);
+        if (a.status === 'Approved' || a.status === 'Closed') steps.push(['Reviewed', reviewer, 2, 'Approved', a.score !== null ? `Scored ${a.score}%. ${a.resultNotes || ''}`.trim() : (a.resultNotes || 'Approved.')]);
+        if (a.status === 'Closed') steps.push(['Closed', hrHead, 4, 'Closed', 'Outcome recorded to employee profile.']);
+        a.approvalHistory = chainAt(steps, a.createdAt);
+      }
       appraisals.push(a);
       return a;
     }
     // Flagship PIP storyline: annual appraisal scored <70 -> auto PIP
-    makeAppraisal({ employeeId: pipEmployee.id, type: 'Annual', period: '2026 H1', score: 58, status: 'Approved', reviewerId: deptHeads['DPT-MFG'].id, resultNotes: 'Missed 3 of 5 production quality KPIs. PIP auto-generated.', createdAt: daysAgo(45) });
-    makeAppraisal({ employeeId: pipEmployee.id, type: 'PIP', period: '60-day Improvement Plan', score: null, status: 'Pending Approval', reviewerId: deptHeads['DPT-MFG'].id, resultNotes: 'Weekly quality-checkpoint targets set with line supervisor; L&D notified for coaching support.', createdAt: daysAgo(40) });
+    makeAppraisal({
+      employeeId: pipEmployee.id, type: 'Annual', period: '2026 H1', score: 58, status: 'Approved', reviewerId: deptHeads['DPT-MFG'].id,
+      resultNotes: 'Missed 3 of 5 production quality KPIs. PIP auto-generated.', createdAt: daysAgo(45),
+      approvalHistory: chain(
+        ['Submitted for Review', deptHeads['DPT-MFG'], 45, 'Submitted', 'Annual appraisal submitted for 2026 H1 cycle.'],
+        ['Scored', deptHeads['DPT-MFG'], 43, 'Scored 58%', 'Missed 3 of 5 production quality KPIs.'],
+        ['Threshold Check', null, 43, 'PIP auto-generated', 'Score below the 70% threshold — a 60-day Performance Improvement Plan was generated automatically and L&D notified.']
+      )
+    });
+    makeAppraisal({
+      employeeId: pipEmployee.id, type: 'PIP', period: '60-day Improvement Plan', score: null, status: 'Pending Approval', reviewerId: deptHeads['DPT-MFG'].id,
+      resultNotes: 'Weekly quality-checkpoint targets set with line supervisor; L&D notified for coaching support.', createdAt: daysAgo(40),
+      approvalHistory: chain(['PIP Drafted', deptHeads['DPT-MFG'], 40, 'Drafted improvement plan', 'Weekly quality-checkpoint targets set with line supervisor.'])
+    });
     // Interim / confirmation storyline
     makeAppraisal({ employeeId: newHire.id, type: 'Interim', period: '3-month interim review', score: null, status: 'Draft', reviewerId: deptHeads['DPT-SNM'].id, createdAt: daysAgo(1) });
-    makeAppraisal({ employeeId: actingEmployee.id, type: 'Acting Confirmation', period: 'Acting QA/QC Manager — 3 months', score: 88, status: 'Approved', reviewerId: hrHead.id, resultNotes: 'Recommended for substantive confirmation into role.', createdAt: daysAgo(12) });
+    makeAppraisal({
+      employeeId: actingEmployee.id, type: 'Acting Confirmation', period: 'Acting QA/QC Manager — 3 months', score: 88, status: 'Approved', reviewerId: hrHead.id,
+      resultNotes: 'Recommended for substantive confirmation into role.', createdAt: daysAgo(12),
+      approvalHistory: chain(
+        ['Submitted for Review', deptHeads['DPT-QAQ'], 12, 'Submitted', 'Acting-role confirmation evaluation submitted after 3 months.'],
+        ['Reviewed', hrHead, 9, 'Approved — 88%', 'Strong performance across all acting-role KPIs. Recommended for substantive confirmation.']
+      )
+    });
     // Pre-confirmation (9-month mark) storyline — a small batch at various stages
     pickN(employees.filter((e) => e.status === 'Active'), 3).forEach((e) => {
       makeAppraisal({ employeeId: e.id, type: 'Pre-confirmation', period: '9-month confirmation review', score: int(62, 95), status: pick(['Draft', 'Pending Approval', 'Approved']), reviewerId: e.managerId || hrHead.id, createdAt: daysAgo(int(2, 30)) });
@@ -278,20 +350,26 @@
     // ---------------- Training needs / plan / LMS ----------------
     const trainingNeeds = [];
     const trainingPlans = [];
+    const LMS_SYNCED_AT = daysAgo(0);
     const courses = [
-      { id: nid('CRS', 'crs'), title: 'CGMP Fundamentals Refresher', category: 'Compliance', format: 'Video', durationHrs: 3, points: 50 },
-      { id: nid('CRS', 'crs'), title: 'Pharmacovigilance Essentials', category: 'Regulatory', format: 'E-Learning', durationHrs: 4, points: 60 },
-      { id: nid('CRS', 'crs'), title: 'Advanced Selling Skills for MSRs', category: 'Sales', format: 'Webinar', durationHrs: 2, points: 30 },
-      { id: nid('CRS', 'crs'), title: 'Leadership Foundations', category: 'Leadership', format: 'Book + Workshop', durationHrs: 6, points: 80 },
-      { id: nid('CRS', 'crs'), title: 'Root Cause Analysis & CAPA', category: 'Quality', format: 'E-Learning', durationHrs: 3, points: 45 },
-      { id: nid('CRS', 'crs'), title: 'Data Analysis with Excel for HR', category: 'Digital Skills', format: 'Video', durationHrs: 5, points: 55 },
-      { id: nid('CRS', 'crs'), title: 'Workplace Safety & First Aid', category: 'HSE', format: 'In-person', durationHrs: 4, points: 40 },
-      { id: nid('CRS', 'crs'), title: 'Product Knowledge: Cardiovascular Portfolio', category: 'Product', format: 'SCORM Package', durationHrs: 2, points: 30 }
-    ];
+      { id: nid('CRS', 'crs'), externalId: 'FLC-10231', title: 'CGMP Fundamentals Refresher', category: 'Compliance', format: 'Video', durationHrs: 3, points: 50 },
+      { id: nid('CRS', 'crs'), externalId: 'FLC-10247', title: 'Pharmacovigilance Essentials', category: 'Regulatory', format: 'E-Learning', durationHrs: 4, points: 60 },
+      { id: nid('CRS', 'crs'), externalId: 'FLC-10309', title: 'Advanced Selling Skills for MSRs', category: 'Sales', format: 'Webinar', durationHrs: 2, points: 30 },
+      { id: nid('CRS', 'crs'), externalId: 'FLC-10118', title: 'Leadership Foundations', category: 'Leadership', format: 'Book + Workshop', durationHrs: 6, points: 80 },
+      { id: nid('CRS', 'crs'), externalId: 'FLC-10355', title: 'Root Cause Analysis & CAPA', category: 'Quality', format: 'E-Learning', durationHrs: 3, points: 45 },
+      { id: nid('CRS', 'crs'), externalId: 'FLC-10402', title: 'Data Analysis with Excel for HR', category: 'Digital Skills', format: 'Video', durationHrs: 5, points: 55 },
+      { id: nid('CRS', 'crs'), externalId: 'FLC-10089', title: 'Workplace Safety & First Aid', category: 'HSE', format: 'In-person', durationHrs: 4, points: 40 },
+      { id: nid('CRS', 'crs'), externalId: 'FLC-10276', title: 'Product Knowledge: Cardiovascular Portfolio', category: 'Product', format: 'SCORM Package', durationHrs: 2, points: 30 }
+    ].map((c) => Object.assign(c, { source: 'Fortunebolt Learning Cloud', syncedAt: LMS_SYNCED_AT }));
     const enrollments = [];
     const evaluations = [];
     pickN(employees.filter((e) => e.status !== 'Exiting'), 24).forEach((e) => {
-      const need = { id: nid('TNA', 'tna'), employeeId: e.id, need: pick(courses).title, justification: 'Identified via performance appraisal skill-gap review.', status: pick(['Pending HOD Review', 'Approved', 'Rejected']), hodId: e.managerId, createdAt: daysAgo(int(5, 90)) };
+      const needStatus = pick(['Pending HOD Review', 'Approved', 'Rejected']);
+      const needCreatedAt = daysAgo(int(5, 90));
+      const hod = e.managerId ? employee_ref(e.managerId) : hrHead;
+      const needHistorySteps = [['Need Identified', e, 0, 'Logged training need', 'Identified via performance appraisal skill-gap review.', 'done']];
+      if (needStatus !== 'Pending HOD Review') needHistorySteps.push(['HOD Review', hod, 2, needStatus === 'Rejected' ? 'Rejected' : 'Approved', needStatus === 'Rejected' ? 'Not aligned with current departmental priorities.' : 'Approved — promoted to Training Plan and LMS enrollment.', needStatus === 'Rejected' ? 'rejected' : 'done']);
+      const need = { id: nid('TNA', 'tna'), employeeId: e.id, need: pick(courses).title, justification: 'Identified via performance appraisal skill-gap review.', status: needStatus, hodId: e.managerId, createdAt: needCreatedAt, approvalHistory: chainAt(needHistorySteps, needCreatedAt) };
       trainingNeeds.push(need);
       if (need.status === 'Approved' && bool(0.8)) {
         const course = pick(courses);
@@ -324,18 +402,29 @@
     };
 
     // ---------------- Disciplinary (flagship) ----------------
+    function chain(...steps) {
+      return steps.map(([stage, actorEmp, dayOffset, action, comment, status]) => ({
+        stage, actor: nameOf(actorEmp), actorRole: actorEmp ? actorEmp.jobTitle : '',
+        action, comment: comment || '', timestamp: daysAgo(dayOffset), status: status || 'done'
+      }));
+    }
     const disciplinaryCases = [
       {
         id: nid('DSC', 'dsc'), employeeId: discEmployee.id, type: 'Query', initiatedBy: deptHeads['DPT-SCL'].id,
         reason: 'Repeated late clock-in (4 occurrences in 30 days) without prior notice.',
         recommendation: 'Written warning.', counterRecommendation: '', status: 'Pending HR Review',
-        payrollDeductionFlag: false, createdAt: daysAgo(6)
+        payrollDeductionFlag: false, createdAt: daysAgo(6),
+        approvalHistory: chain(['Query Raised', deptHeads['DPT-SCL'], 6, 'Initiated query', 'Repeated late clock-in (4 occurrences in 30 days) without prior notice. Recommend written warning.'])
       },
       {
         id: nid('DSC', 'dsc'), employeeId: pickN(employees.filter((e) => e.status === 'Active' && e.id !== discEmployee.id), 1)[0].id,
         type: 'Warning', initiatedBy: hrbp2.id, reason: 'Breach of SOP during stock reconciliation.',
         recommendation: 'First written warning, retraining on SOP.', counterRecommendation: 'Agreed with recommendation.',
-        status: 'Closed', payrollDeductionFlag: false, createdAt: daysAgo(75)
+        status: 'Closed', payrollDeductionFlag: false, createdAt: daysAgo(75),
+        approvalHistory: chain(
+          ['Warning Raised', hrbp2, 75, 'Initiated warning', 'Breach of SOP during stock reconciliation. Recommend first written warning, retraining on SOP.'],
+          ['HR Review', admin, 72, 'Case closed', 'Agreed with recommendation. Retraining scheduled with line supervisor.']
+        )
       }
     ];
 
@@ -348,17 +437,42 @@
         { item: 'Company laptop', returned: false }, { item: 'ID card', returned: false },
         { item: 'Access fob', returned: false }, { item: 'Fuel card', returned: true }
       ],
-      finalSettlementStatus: 'Not Started', status: 'In Progress', restrictedAccess: true, createdAt: daysAgo(14)
+      finalSettlementStatus: 'Not Started', status: 'In Progress', restrictedAccess: true, createdAt: daysAgo(14),
+      approvalHistory: chain(
+        ['Notice Received', exitEmployee, 14, 'Resignation submitted', 'Signed resignation letter uploaded. Last working day proposed 30 days from notice.'],
+        ['Clearance Initiated', hrbp2, 13, 'Clearance & handover started', 'Handover checklist issued to employee and line manager.']
+      )
     }];
 
     // ---------------- Employee relations: welfare + surveys ----------------
-    const welfareRequests = pickN(employees.filter((e) => e.status === 'Active'), 8).map((e, idx) => ({
-      id: nid('WEL', 'wel'), employeeId: e.id,
-      benefitType: pick(['Bereavement Support', 'Childbirth Allowance', 'Wedding Gift', 'Educational Grant', 'Emergency Welfare']),
-      amount: int(20, 150) * 1000, evidenceUploaded: bool(0.8),
-      status: ['Pending HRBP Review', 'Pending Finance Approval', 'Approved', 'Paid', 'Rejected'][idx % 5],
-      createdAt: daysAgo(int(2, 60))
-    }));
+    const WELFARE_CHAIN_STAGES = ['Pending HRBP Review', 'Pending Finance Approval', 'Approved', 'Paid', 'Rejected'];
+    function welfareHistory(status, emp, createdAt, benefitType) {
+      const steps = [['Request Submitted', emp, 0, 'Submitted welfare request', `Requesting ${benefitType.toLowerCase()}.`, 'done']];
+      if (status === 'Pending HRBP Review') return chainAt(steps, createdAt);
+      steps.push(['HRBP Review', hrbp2, -3, status === 'Rejected' ? 'Rejected' : 'Endorsed', status === 'Rejected' ? 'Does not meet policy criteria for this benefit.' : 'Reviewed and endorsed for Finance approval.', status === 'Rejected' ? 'rejected' : 'done']);
+      if (status === 'Rejected' || status === 'Pending Finance Approval') return chainAt(steps, createdAt);
+      steps.push(['Finance Approval', admin, -6, 'Approved', 'Budget confirmed — approved for payment.']);
+      if (status === 'Approved') return chainAt(steps, createdAt);
+      steps.push(['Payment Processed', admin, -9, 'Paid', 'Payment disbursed to employee account.']);
+      return chainAt(steps, createdAt);
+    }
+    // Anchors each step's date relative to the record's own createdAt (not "now") so history reads chronologically.
+    function chainAt(steps, createdAt) {
+      const base = new Date(createdAt).getTime();
+      return steps.map(([stage, actorEmp, idx, action, comment, status], i) => ({
+        stage, actor: nameOf(actorEmp), actorRole: actorEmp ? actorEmp.jobTitle : '',
+        action, comment: comment || '', timestamp: new Date(base + i * 2 * 86400000).toISOString().slice(0, 10), status: status || 'done'
+      }));
+    }
+    const welfareRequests = pickN(employees.filter((e) => e.status === 'Active'), 8).map((e, idx) => {
+      const status = WELFARE_CHAIN_STAGES[idx % 5];
+      const benefitType = pick(['Bereavement Support', 'Childbirth Allowance', 'Wedding Gift', 'Educational Grant', 'Emergency Welfare']);
+      const createdAt = daysAgo(int(10, 60));
+      return {
+        id: nid('WEL', 'wel'), employeeId: e.id, benefitType, amount: int(20, 150) * 1000, evidenceUploaded: bool(0.8),
+        status, createdAt, approvalHistory: welfareHistory(status, e, createdAt, benefitType)
+      };
+    });
     const surveys = [
       { id: nid('SUR', 'sur'), title: 'Q2 2026 Employee Engagement Pulse', status: 'Closed', deployedTo: DEPARTMENTS.map((d) => d.id), responseCount: 214, targetCount: 260 },
       { id: nid('SUR', 'sur'), title: 'Post-Onboarding Experience Survey', status: 'Open', deployedTo: ['DPT-SNM', 'DPT-QAQ'], responseCount: 6, targetCount: 14 }
@@ -408,25 +522,54 @@
       lastMedicalCheck: daysAgo(int(10, 300)),
       documents: pickN(['Pre-employment medical report', 'Food handlers certificate', 'Fitness certificate', 'Health week screening result'], int(1, 3))
     }));
+    function billHistory(status, emp, createdAt, provider) {
+      const steps = [['Bill Submitted', emp, 0, 'Submitted for verification', `${provider} invoice uploaded.`, 'done']];
+      if (status === 'Submitted') return chainAt(steps, createdAt);
+      steps.push(['Verification', clinicLead, 3, 'Verified', 'Invoice checked against treatment record — genuine.']);
+      if (status === 'Verified') return chainAt(steps, createdAt);
+      steps.push(['Approval', hrHead, 6, 'Approved', 'Approved for payment against staff medical benefit.']);
+      if (status === 'Approved' || status === 'Outstanding') return chainAt(steps, createdAt);
+      steps.push(['Payment', admin, 9, 'Paid', 'Payment disbursed to provider.']);
+      return chainAt(steps, createdAt);
+    }
     const medicalBills = pickN(employees.filter((e) => e.status !== 'Exiting'), 9).map((e, idx) => {
       const amount = int(8, 90) * 1000;
       const status = ['Submitted', 'Verified', 'Approved', 'Paid', 'Outstanding'][idx % 5];
-      return { id: nid('BIL', 'bil'), employeeId: e.id, provider: pick(['Reddington Hospital', 'St. Nicholas Hospital', 'Lagoon Hospitals', 'First Cardiology Consultants', 'Fidson Staff Clinic']), amount, status, outstandingBalance: status === 'Outstanding' ? amount : 0, createdAt: daysAgo(int(3, 80)) };
+      const provider = pick(['Reddington Hospital', 'St. Nicholas Hospital', 'Lagoon Hospitals', 'First Cardiology Consultants', 'Fidson Staff Clinic']);
+      const createdAt = daysAgo(int(15, 80));
+      return { id: nid('BIL', 'bil'), employeeId: e.id, provider, amount, status, outstandingBalance: status === 'Outstanding' ? amount : 0, createdAt, approvalHistory: billHistory(status, e, createdAt, provider) };
     });
     const vaccinationSchedules = pickN(employees, 12).map((e) => ({
       id: nid('VAC', 'vac'), employeeId: e.id, vaccine: pick(['Hepatitis B Booster', 'Yellow Fever', 'Tetanus Toxoid', 'Annual Flu Shot', 'COVID-19 Booster']),
       dueDate: daysFromNow(int(-20, 60)), status: pick(['Scheduled', 'Completed', 'Overdue'])
     }));
     const drugRequisitions = [
-      { id: nid('DRG', 'drg'), requestedBy: clinicLead.id, drugs: 'Paracetamol 500mg, ORS sachets, Artemether-Lumefantrine, Wound dressing kits', status: 'Pending Approval', createdAt: daysAgo(2) },
-      { id: nid('DRG', 'drg'), requestedBy: clinicLead.id, drugs: 'Amoxicillin 500mg, Antihistamines, First aid consumables', status: 'Approved', createdAt: daysAgo(18) },
-      { id: nid('DRG', 'drg'), requestedBy: clinicLead.id, drugs: 'IV fluids, Diclofenac injection', status: 'Procured', createdAt: daysAgo(40) }
+      { id: nid('DRG', 'drg'), requestedBy: clinicLead.id, drugs: 'Paracetamol 500mg, ORS sachets, Artemether-Lumefantrine, Wound dressing kits', status: 'Pending Approval', createdAt: daysAgo(2),
+        approvalHistory: chain(['Requisition Submitted', clinicLead, 2, 'Submitted requisition', 'Essential medicines restock — clinic running low.']) },
+      { id: nid('DRG', 'drg'), requestedBy: clinicLead.id, drugs: 'Amoxicillin 500mg, Antihistamines, First aid consumables', status: 'Approved', createdAt: daysAgo(18),
+        approvalHistory: chain(['Requisition Submitted', clinicLead, 18, 'Submitted requisition', 'Monthly restock.'], ['Procurement Approval', admin, 16, 'Approved', 'Approved for purchase — within budget.']) },
+      { id: nid('DRG', 'drg'), requestedBy: clinicLead.id, drugs: 'IV fluids, Diclofenac injection', status: 'Procured', createdAt: daysAgo(40),
+        approvalHistory: chain(['Requisition Submitted', clinicLead, 40, 'Submitted requisition', 'Emergency stock.'], ['Procurement Approval', admin, 38, 'Approved', 'Approved for purchase.'], ['Fulfilled', admin, 33, 'Procured', 'Stock delivered to clinic.']) }
     ];
-    const sickLeaveRequests = pickN(employees.filter((e) => e.status === 'Active'), 6).map((e, idx) => ({
-      id: nid('SCK', 'sck'), employeeId: e.id, startDate: daysAgo(int(1, 20)), endDate: daysAgo(int(-5, 15)),
-      reason: pick(['Malaria treatment', 'Minor surgery recovery', 'Typhoid treatment', 'Flu/viral infection', 'Dental procedure']),
-      medicalReportAttached: bool(0.85), status: ['Pending Supervisor Review', 'Pending Clinic Review', 'Approved', 'Approved', 'Rejected'][idx % 5], createdAt: daysAgo(int(1, 20))
-    }));
+    function sickLeaveHistory(status, emp, createdAt) {
+      const steps = [['Request Submitted', emp, 0, 'Applied for sick leave', 'Medical report attached.', 'done']];
+      if (status === 'Pending Supervisor Review') return chainAt(steps, createdAt);
+      const supervisor = emp.managerId ? employee_ref(emp.managerId) : hrHead;
+      steps.push(['Supervisor Review', supervisor, 1, status === 'Rejected' ? 'Rejected' : 'Endorsed', status === 'Rejected' ? 'Insufficient documentation provided.' : 'Endorsed, forwarded to Clinic.', status === 'Rejected' ? 'rejected' : 'done']);
+      if (status === 'Rejected' || status === 'Pending Clinic Review') return chainAt(steps, createdAt);
+      steps.push(['Clinic Review', clinicLead, 2, 'Approved', 'Medical report reviewed and accepted. Recorded to employee profile.']);
+      return chainAt(steps, createdAt);
+    }
+    function employee_ref(id) { return employees.find((e) => e.id === id); }
+    const sickLeaveRequests = pickN(employees.filter((e) => e.status === 'Active'), 6).map((e, idx) => {
+      const status = ['Pending Supervisor Review', 'Pending Clinic Review', 'Approved', 'Approved', 'Rejected'][idx % 5];
+      const createdAt = daysAgo(int(5, 20));
+      return {
+        id: nid('SCK', 'sck'), employeeId: e.id, startDate: createdAt, endDate: daysAgo(int(1, 20) - int(1, 6)),
+        reason: pick(['Malaria treatment', 'Minor surgery recovery', 'Typhoid treatment', 'Flu/viral infection', 'Dental procedure']),
+        medicalReportAttached: bool(0.85), status, createdAt, approvalHistory: sickLeaveHistory(status, e, createdAt)
+      };
+    });
 
     // ---------------- Notifications (simulated email/SMS feed) ----------------
     const notifications = [
@@ -445,12 +588,13 @@
     ];
 
     return {
-      _meta: { seedVersion: 6, generatedAt: now, company: 'Fortunebolt Pharmaceuticals Plc' },
+      _meta: { seedVersion: 8, generatedAt: now, company: 'Fortunebolt Pharmaceuticals Plc' },
       currentUserId: admin.id,
       departments: DEPARTMENTS, hrUnits: HR_UNITS, cadres: CADRES,
       employees, requisitions, candidates, assessments, interviews, offers, onboardingTasks,
       appraisals, careerPlans, trainingNeeds, trainingPlans, courses, enrollments, evaluations,
       trainingSchedules, trainingBudget,
+      lmsSync: { provider: 'Fortunebolt Learning Cloud', lastSyncedAt: LMS_SYNCED_AT, courseCount: courses.length },
       disciplinaryCases, exitCases, welfareRequests, surveys, leaveRequests, essRequests, guarantorChecks,
       medicalRecords, medicalBills, vaccinationSchedules, drugRequisitions, sickLeaveRequests,
       notifications, auditLog

@@ -5,6 +5,15 @@
   'use strict';
   var store, ui;
 
+  function renderSyncNote() {
+    var sync = store.get('lmsSync');
+    var host = document.getElementById('fb-lms-sync-note');
+    if (!sync) { host.innerHTML = ''; return; }
+    host.innerHTML = '<div class="fb-scope-note">🔄 <span>Course catalog is synced from <strong>' + ui.escapeHtml(sync.provider) +
+      '</strong> — courses are authored and maintained there, not in this system. Last synced ' + ui.fmtDate(sync.lastSyncedAt) +
+      ' · ' + sync.courseCount + ' course(s) synced.</span></div>';
+  }
+
   function renderCatalog() {
     var courses = store.get('courses');
     document.getElementById('fb-course-cards').innerHTML = courses.map(function (c) {
@@ -16,23 +25,31 @@
         '<div class="fb-xs fb-faint" style="margin-top:10px">' + enrolled + ' enrolled · ' + completed + ' completed</div></div>';
     }).join('');
     document.querySelectorAll('[data-course-card]').forEach(function (card) {
-      card.addEventListener('click', function () { openCourseModal(store.getById('courses', card.getAttribute('data-course-card'))); });
+      card.addEventListener('click', function () { openCourseDrawer(store.getById('courses', card.getAttribute('data-course-card'))); });
     });
   }
 
-  function openCourseModal(c) {
+  function openCourseDrawer(c) {
     var enrollments = store.find('enrollments', function (e) { return e.courseId === c.id; });
-    var body = '<div class="fb-grid fb-grid--2">' +
-      '<div><div class="fb-xs fb-faint">Category</div><div class="fb-bold">' + ui.escapeHtml(c.category) + '</div></div>' +
-      '<div><div class="fb-xs fb-faint">Format</div><div class="fb-bold">' + ui.escapeHtml(c.format) + '</div></div>' +
-      '<div><div class="fb-xs fb-faint">Duration</div><div class="fb-bold">' + c.durationHrs + ' hour(s)</div></div>' +
-      '<div><div class="fb-xs fb-faint">Gamification points</div><div class="fb-bold">' + c.points + ' pts</div></div>' +
-      '</div><hr class="fb-divider" />' +
-      '<div class="fb-xs fb-faint" style="margin-bottom:8px">Enrolled staff (' + enrollments.length + ')</div>' +
-      (enrollments.length ? '<div class="fb-table-wrap"><table class="fb-table"><tbody>' + enrollments.map(function (e) {
-        return '<tr><td>' + ui.escapeHtml(store.employeeName(e.employeeId)) + '</td><td>' + ui.badge(e.status) + '</td><td class="fb-cell-muted">' + (e.score !== null ? e.score + '%' : '—') + '</td></tr>';
-      }).join('') + '</tbody></table></div>' : '<div class="fb-faint fb-small">No enrollments yet.</div>');
-    ui.modal({ title: c.title, wide: true, body: body });
+    var overviewHtml = '<div class="fb-scope-note">🔄 <span>Synced from <strong>' + ui.escapeHtml(c.source || 'Fortunebolt Learning Cloud') +
+      '</strong> (external ID ' + ui.escapeHtml(c.externalId || '—') + ') · last synced ' + ui.fmtDate(c.syncedAt) +
+      '. Content, category and duration are managed in the source system.</span></div>' +
+      '<div class="fb-detail-grid">' +
+      '<div><div class="fb-detail-item__label">Category</div><div class="fb-detail-item__value">' + ui.escapeHtml(c.category) + '</div></div>' +
+      '<div><div class="fb-detail-item__label">Format</div><div class="fb-detail-item__value">' + ui.escapeHtml(c.format) + '</div></div>' +
+      '<div><div class="fb-detail-item__label">Duration</div><div class="fb-detail-item__value">' + c.durationHrs + ' hour(s)</div></div>' +
+      '<div><div class="fb-detail-item__label">Gamification points</div><div class="fb-detail-item__value">' + c.points + ' pts</div></div>' +
+      '</div>';
+    var enrollHtml = enrollments.length ? '<div class="fb-table-wrap"><table class="fb-table"><thead><tr><th>Employee</th><th>Status</th><th>Score</th></tr></thead><tbody>' + enrollments.map(function (e) {
+      return '<tr><td>' + ui.escapeHtml(store.employeeName(e.employeeId)) + '</td><td>' + ui.badge(e.status) + '</td><td class="fb-cell-muted">' + (e.score !== null ? e.score + '%' : '—') + '</td></tr>';
+    }).join('') + '</tbody></table></div>' : '<div class="fb-faint fb-small">No enrollments yet.</div>';
+    ui.drawer({
+      eyebrow: 'Course · ' + (c.externalId || c.id),
+      title: c.title,
+      subtitle: ui.badge(c.format),
+      tabs: [{ key: 'overview', label: 'Overview' }, { key: 'enrollments', label: 'Enrolled staff (' + enrollments.length + ')' }],
+      body: '<section data-fb-tabpanel="overview">' + overviewHtml + '</section><section data-fb-tabpanel="enrollments" style="display:none">' + enrollHtml + '</section>'
+    });
   }
 
   function renderEnrollments() {
@@ -101,23 +118,6 @@
       }).join('') + '</tbody></table></div>';
   }
 
-  function openNewCourseModal() {
-    var body = '<div class="fb-field"><label>Course title</label><input type="text" id="cn-title" /></div>' +
-      '<div class="fb-field-row"><div class="fb-field"><label>Category</label><input type="text" id="cn-cat" placeholder="e.g. Compliance" /></div><div class="fb-field"><label>Format</label><select id="cn-format"><option>Video</option><option>E-Learning</option><option>Webinar</option><option>In-person</option><option>SCORM Package</option><option>Book + Workshop</option></select></div></div>' +
-      '<div class="fb-field-row"><div class="fb-field"><label>Duration (hours)</label><input type="number" id="cn-dur" value="2" /></div><div class="fb-field"><label>Points</label><input type="number" id="cn-points" value="30" /></div></div>';
-    ui.modal({
-      title: 'New course', body: body, footer: '<button class="fb-btn fb-btn--primary" data-act="save">Publish course</button>',
-      onMount: function (box) {
-        box.querySelector('[data-act="save"]').addEventListener('click', function () {
-          var title = document.getElementById('cn-title').value.trim();
-          if (!title) { ui.toast('Enter a course title.', 'error'); return; }
-          store.insert('courses', { title: title, category: document.getElementById('cn-cat').value.trim() || 'General', format: document.getElementById('cn-format').value, durationHrs: Number(document.getElementById('cn-dur').value) || 1, points: Number(document.getElementById('cn-points').value) || 10 });
-          ui.closeModal(); ui.toast('Course published to the catalog.', 'success'); renderCatalog();
-        });
-      }
-    });
-  }
-
   function openEnrollModal() {
     var employees = store.get('employees').filter(function (e) { return e.status !== 'Exiting'; });
     var courses = store.get('courses');
@@ -139,8 +139,7 @@
   FB.events.on('shell:ready', function () {
     store = FB.store; ui = FB.ui;
     ui.wireTabs('#fb-page-root', function (key) { if (key === 'leaderboard') renderLeaderboard(); });
-    renderCatalog(); renderEnrollments();
-    document.getElementById('fb-btn-new-course').addEventListener('click', openNewCourseModal);
+    renderSyncNote(); renderCatalog(); renderEnrollments();
     document.getElementById('fb-btn-enroll').addEventListener('click', openEnrollModal);
   });
 })();

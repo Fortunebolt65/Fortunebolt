@@ -190,6 +190,71 @@
     });
   }
 
+  // ---------------- Drawer (large slide-over panel — detail views & creation forms) ----------------
+  let drawerOverlayEl = null;
+  function ensureDrawerOverlay() {
+    if (drawerOverlayEl && document.body.contains(drawerOverlayEl)) return drawerOverlayEl;
+    drawerOverlayEl = document.createElement('div');
+    drawerOverlayEl.className = 'fb-drawer-overlay';
+    drawerOverlayEl.innerHTML = '<div class="fb-drawer" data-fb-drawer></div>';
+    document.body.appendChild(drawerOverlayEl);
+    drawerOverlayEl.addEventListener('click', (e) => { if (e.target === drawerOverlayEl) closeDrawer(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
+    return drawerOverlayEl;
+  }
+  function closeDrawer() {
+    if (drawerOverlayEl) drawerOverlayEl.classList.remove('is-open');
+  }
+  function drawer(opts) {
+    ensureDrawerOverlay();
+    const box = drawerOverlayEl.querySelector('[data-fb-drawer]');
+    box.className = `fb-drawer ${opts.size === 'xl' ? 'fb-drawer--xl' : ''}`;
+    box.innerHTML = `
+      <div class="fb-drawer__head">
+        <div class="fb-drawer__title-row">
+          <div>
+            ${opts.eyebrow ? `<div class="fb-breadcrumb" style="margin-bottom:4px">${escapeHtml(opts.eyebrow)}</div>` : ''}
+            <div class="fb-drawer__title">${escapeHtml(opts.title)}</div>
+            ${opts.subtitle ? `<div class="fb-drawer__subtitle">${opts.subtitle}</div>` : ''}
+          </div>
+          <div class="fb-flex" style="flex:none">${opts.headerExtra || ''}<button class="fb-close-btn" data-fb-drawer-close>✕</button></div>
+        </div>
+        ${opts.tabs ? `<div class="fb-tabs" style="margin:16px 0 -20px">${opts.tabs.map((t, i) => `<button class="fb-tab ${i === 0 ? 'is-active' : ''}" data-fb-tab="${t.key}">${escapeHtml(t.label)}</button>`).join('')}</div>` : ''}
+      </div>
+      <div class="fb-drawer__body">${opts.body}</div>
+      ${opts.footer ? `<div class="fb-drawer__foot">${opts.footer}</div>` : ''}`;
+    box.querySelector('[data-fb-drawer-close]').addEventListener('click', closeDrawer);
+    if (opts.tabs) wireTabs(box);
+    if (opts.onMount) opts.onMount(box);
+    drawerOverlayEl.classList.add('is-open');
+    box.scrollTop = 0;
+    const bodyEl = box.querySelector('.fb-drawer__body');
+    if (bodyEl) bodyEl.scrollTop = 0;
+    return { close: closeDrawer, el: box };
+  }
+
+  // ---------------- Approval workflow timeline (rich audit trail: who / when / what / notes) ----------------
+  function workflowTimeline(container, steps) {
+    const el = typeof container === 'string' ? document.querySelector(container) : container;
+    if (!el) return;
+    if (!steps || !steps.length) { el.innerHTML = '<div class="fb-empty"><div class="fb-empty__icon">🕒</div>No workflow activity yet.</div>'; return; }
+    el.innerHTML = `<ul class="fb-approval-list">${steps.map((s) => {
+      const iconClass = s.status === 'done' ? 'done' : s.status === 'current' ? 'current' : s.status === 'rejected' ? 'rejected' : 'pending';
+      const icon = s.status === 'done' ? '✓' : s.status === 'rejected' ? '✕' : s.status === 'current' ? '●' : '○';
+      return `<li class="fb-approval-step">
+        <div class="fb-approval-step__icon fb-approval-step__icon--${iconClass}">${icon}</div>
+        <div class="fb-approval-step__body">
+          <div class="fb-flex-between">
+            <span class="fb-approval-step__stage">${escapeHtml(s.stage)}</span>
+            ${s.badge ? badge(s.badge) : ''}
+          </div>
+          <div class="fb-approval-step__meta">${s.actor ? escapeHtml(s.actor) + (s.actorRole ? ' · ' + escapeHtml(s.actorRole) : '') + ' — ' : ''}${s.timestamp ? fmtDate(s.timestamp) : (s.status === 'pending' ? 'Not yet reached' : '')}</div>
+          ${s.comment ? `<div class="fb-approval-step__comment">${escapeHtml(s.comment)}</div>` : ''}
+        </div>
+      </li>`;
+    }).join('')}</ul>`;
+  }
+
   // ---------------- Bar chart (pure CSS bars, no SVG dependency needed) ----------------
   function barChart(container, opts) {
     const el = typeof container === 'string' ? document.querySelector(container) : container;
@@ -223,7 +288,7 @@
       tab.addEventListener('click', () => {
         const key = tab.getAttribute('data-fb-tab');
         tabs.forEach((t) => t.classList.toggle('is-active', t === tab));
-        document.querySelectorAll('[data-fb-tabpanel]').forEach((panel) => {
+        el.querySelectorAll('[data-fb-tabpanel]').forEach((panel) => {
           panel.style.display = panel.getAttribute('data-fb-tabpanel') === key ? '' : 'none';
         });
         if (onChange) onChange(key);
@@ -248,7 +313,7 @@
   global.FB.ui = {
     wireTabs, exportCsv,
     escapeHtml, fmtMoney, fmtDate, statusVariant, badge, tag, initials, personCell,
-    table, kanban, stepper, statCardHtml, modal, confirmModal, closeModal, barChart, progressBar, timeline
+    table, kanban, stepper, statCardHtml, modal, confirmModal, closeModal, drawer, closeDrawer, workflowTimeline, barChart, progressBar, timeline
   };
   // convenience alias — resolved lazily since notifications.js loads after this file
   global.FB.ui.toast = function (message, type) { return global.FB.notifications.toast(message, type); };

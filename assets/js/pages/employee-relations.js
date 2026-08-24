@@ -88,44 +88,76 @@
     });
   }
 
+  function welfareDisplaySteps(r) {
+    var steps = (r.approvalHistory || []).slice();
+    if (r.status !== 'Rejected' && r.status !== 'Paid') {
+      var idx = WELFARE_STAGES.indexOf(r.status);
+      WELFARE_STAGES.slice(idx).forEach(function (s, i) { steps.push({ stage: s, status: i === 0 ? 'current' : 'pending', action: i === 0 ? 'Awaiting decision' : undefined }); });
+    }
+    return steps;
+  }
+
   function openWelfareModal(r) {
-    var stepIdx = r.status === 'Rejected' ? 0 : WELFARE_STAGES.indexOf(r.status);
-    var body = '<div id="wf-stepper"></div><div class="fb-grid fb-grid--2">' +
-      '<div><div class="fb-xs fb-faint">Employee</div><div class="fb-bold">' + ui.escapeHtml(store.employeeName(r.employeeId)) + '</div></div>' +
-      '<div><div class="fb-xs fb-faint">Benefit type</div><div class="fb-bold">' + ui.escapeHtml(r.benefitType) + '</div></div>' +
-      '<div><div class="fb-xs fb-faint">Amount requested</div><div class="fb-bold">' + ui.fmtMoney(r.amount) + '</div></div>' +
-      '<div><div class="fb-xs fb-faint">Evidence</div><div class="fb-bold">' + (r.evidenceUploaded ? 'Uploaded' : 'Not uploaded') + '</div></div>' +
-      '</div>';
+    r = store.getById('welfareRequests', r.id) || r;
+    var overviewHtml = '<div class="fb-detail-grid">' +
+      '<div><div class="fb-detail-item__label">Employee</div><div class="fb-detail-item__value">' + ui.escapeHtml(store.employeeName(r.employeeId)) + '</div></div>' +
+      '<div><div class="fb-detail-item__label">Benefit type</div><div class="fb-detail-item__value">' + ui.escapeHtml(r.benefitType) + '</div></div>' +
+      '<div><div class="fb-detail-item__label">Amount requested</div><div class="fb-detail-item__value">' + ui.fmtMoney(r.amount) + '</div></div>' +
+      '<div><div class="fb-detail-item__label">Evidence</div><div class="fb-detail-item__value">' + (r.evidenceUploaded ? 'Uploaded' : 'Not uploaded') + '</div></div>' +
+      '<div><div class="fb-detail-item__label">Date requested</div><div class="fb-detail-item__value">' + ui.fmtDate(r.createdAt) + '</div></div>' +
+      '</div>' + (r.evidenceUploaded ? '<div class="fb-attachment" style="margin-top:16px"><span class="fb-attachment__icon">📎</span> Supporting_evidence.pdf</div>' : '');
+
+    var workflowHtml = '<div id="wf-workflow-timeline"></div>';
     var footer = '';
     if (r.status === 'Pending HRBP Review') footer = '<button class="fb-btn fb-btn--danger" data-act="reject">Reject</button><button class="fb-btn fb-btn--primary" data-act="hrbp-approve">Approve &amp; forward to Finance</button>';
     else if (r.status === 'Pending Finance Approval') footer = '<button class="fb-btn fb-btn--danger" data-act="reject">Reject</button><button class="fb-btn fb-btn--primary" data-act="finance-approve">Finance approve</button>';
     else if (r.status === 'Approved') footer = '<button class="fb-btn fb-btn--primary" data-act="mark-paid">Mark payment processed</button>';
-    ui.modal({
-      title: r.benefitType, body: body, footer: footer,
+    if (footer) workflowHtml += '<div class="fb-form-card" style="margin-top:20px"><div class="fb-form-card__title">Decision note</div><textarea id="wf-note" placeholder="Optional note..."></textarea></div>';
+
+    ui.drawer({
+      eyebrow: 'Welfare Request · ' + r.id,
+      title: r.benefitType,
+      subtitle: ui.badge(r.status),
+      tabs: [{ key: 'overview', label: 'Overview' }, { key: 'workflow', label: 'Approval Workflow' }],
+      body: '<section data-fb-tabpanel="overview">' + overviewHtml + '</section><section data-fb-tabpanel="workflow" style="display:none">' + workflowHtml + '</section>',
+      footer: footer,
       onMount: function (box) {
-        ui.stepper(box.querySelector('#wf-stepper'), WELFARE_STAGES, stepIdx, { rejectedIndex: r.status === 'Rejected' ? 0 : -1 });
-        function bind(sel, next, msg, notif) { var el = box.querySelector(sel); if (el) el.addEventListener('click', function () { store.update('welfareRequests', r.id, { status: next }); if (notif) store.notify(notif.title, notif.body, 'Employee Relations', 'admin/hrbp/employee-relations.html'); ui.closeModal(); ui.toast(msg, 'success'); renderWelfare(); }); }
-        bind('[data-act="hrbp-approve"]', 'Pending Finance Approval', 'Forwarded to Finance for approval.', { title: 'Welfare request awaiting Finance approval', body: store.employeeName(r.employeeId) + '’s ' + r.benefitType + ' request (' + ui.fmtMoney(r.amount) + ') needs Finance sign-off.' });
-        bind('[data-act="finance-approve"]', 'Approved', 'Approved by Finance. Ready for payment.', { title: 'Welfare request approved', body: store.employeeName(r.employeeId) + '’s ' + r.benefitType + ' request was approved by Finance.' });
-        bind('[data-act="mark-paid"]', 'Paid', 'Payment marked as processed.', { title: 'Welfare payment processed', body: store.employeeName(r.employeeId) + '’s ' + r.benefitType + ' payment has been processed.' });
-        var rejectBtn = box.querySelector('[data-act="reject"]');
-        if (rejectBtn) rejectBtn.addEventListener('click', function () { store.update('welfareRequests', r.id, { status: 'Rejected' }); ui.closeModal(); ui.toast('Request rejected.', 'error'); renderWelfare(); });
+        ui.workflowTimeline(box.querySelector('#wf-workflow-timeline'), welfareDisplaySteps(r));
+        function note() { var el = box.querySelector('#wf-note'); return el ? el.value.trim() : ''; }
+        function bind(sel, stage, next, msg, notif) {
+          var el = box.querySelector(sel); if (!el) return;
+          el.addEventListener('click', function () {
+            store.recordApproval('welfareRequests', r.id, { stage: stage, action: next === 'Rejected' ? 'Rejected' : next, comment: note() || msg, status: next === 'Rejected' ? 'rejected' : 'done', patch: { status: next } });
+            if (notif) store.notify(notif.title, notif.body, 'Employee Relations', 'admin/hrbp/employee-relations.html');
+            ui.closeDrawer(); ui.toast(msg, next === 'Rejected' ? 'error' : 'success'); renderWelfare();
+          });
+        }
+        bind('[data-act="hrbp-approve"]', 'HRBP Review', 'Pending Finance Approval', 'Forwarded to Finance for approval.', { title: 'Welfare request awaiting Finance approval', body: store.employeeName(r.employeeId) + '’s ' + r.benefitType + ' request (' + ui.fmtMoney(r.amount) + ') needs Finance sign-off.' });
+        bind('[data-act="finance-approve"]', 'Finance Approval', 'Approved', 'Approved by Finance. Ready for payment.', { title: 'Welfare request approved', body: store.employeeName(r.employeeId) + '’s ' + r.benefitType + ' request was approved by Finance.' });
+        bind('[data-act="mark-paid"]', 'Payment Processed', 'Paid', 'Payment marked as processed.', { title: 'Welfare payment processed', body: store.employeeName(r.employeeId) + '’s ' + r.benefitType + ' payment has been processed.' });
+        bind('[data-act="reject"]', r.status === 'Pending HRBP Review' ? 'HRBP Review' : 'Finance Approval', 'Rejected', 'Request rejected.');
       }
     });
   }
 
   function openNewWelfareModal() {
     var employees = store.get('employees').filter(function (e) { return e.status === 'Active'; });
-    var body = '<div class="fb-field"><label>Employee</label><select id="nw-emp">' + employees.map(function (e) { return '<option value="' + e.id + '">' + ui.escapeHtml(e.firstName + ' ' + e.lastName) + '</option>'; }).join('') + '</select></div>' +
+    var body = '' +
+      '<div class="fb-form-card"><div class="fb-form-card__title">👤 Request details</div>' +
+      '<div class="fb-field"><label>Employee</label><select id="nw-emp">' + employees.map(function (e) { return '<option value="' + e.id + '">' + ui.escapeHtml(e.firstName + ' ' + e.lastName) + '</option>'; }).join('') + '</select></div>' +
       '<div class="fb-field-row"><div class="fb-field"><label>Benefit type</label><select id="nw-type"><option>Bereavement Support</option><option>Childbirth Allowance</option><option>Wedding Gift</option><option>Educational Grant</option><option>Emergency Welfare</option></select></div>' +
-      '<div class="fb-field"><label>Amount (₦)</label><input type="number" id="nw-amount" placeholder="e.g. 50000" /></div></div>' +
-      '<div class="fb-checkbox"><input type="checkbox" id="nw-evidence" checked /><label for="nw-evidence">Evidence uploaded</label></div>';
-    ui.modal({
-      title: 'Log welfare request', body: body, footer: '<button class="fb-btn fb-btn--primary" data-act="save">Submit for HRBP review</button>',
+      '<div class="fb-field"><label>Amount (₦)</label><input type="number" id="nw-amount" placeholder="e.g. 50000" /></div></div></div>' +
+      '<div class="fb-form-card"><div class="fb-form-card__title">📎 Supporting information</div>' +
+      '<div class="fb-field"><label>Context / notes</label><textarea id="nw-notes" placeholder="Brief context for the request..."></textarea></div>' +
+      '<div class="fb-checkbox"><input type="checkbox" id="nw-evidence" checked /><label for="nw-evidence">Evidence uploaded</label></div></div>';
+    ui.drawer({
+      title: 'Log welfare request', subtitle: 'Routes to HRBP, then Finance, before payment.', body: body,
+      footer: '<button class="fb-btn fb-btn--primary" data-act="save">Submit for HRBP review</button>',
       onMount: function (box) {
         box.querySelector('[data-act="save"]').addEventListener('click', function () {
-          store.insert('welfareRequests', { employeeId: document.getElementById('nw-emp').value, benefitType: document.getElementById('nw-type').value, amount: Number(document.getElementById('nw-amount').value) || 0, evidenceUploaded: document.getElementById('nw-evidence').checked, status: 'Pending HRBP Review' });
-          ui.closeModal(); ui.toast('Welfare request logged.', 'success'); renderWelfare();
+          var r = store.insert('welfareRequests', { employeeId: document.getElementById('nw-emp').value, benefitType: document.getElementById('nw-type').value, amount: Number(document.getElementById('nw-amount').value) || 0, evidenceUploaded: document.getElementById('nw-evidence').checked, status: 'Pending HRBP Review', approvalHistory: [] });
+          store.recordApproval('welfareRequests', r.id, { stage: 'Request Submitted', action: 'Submitted welfare request', comment: document.getElementById('nw-notes').value.trim() || ('Requesting ' + r.benefitType.toLowerCase() + '.') });
+          ui.closeDrawer(); ui.toast('Welfare request logged.', 'success'); renderWelfare();
         });
       }
     });

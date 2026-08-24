@@ -496,3 +496,47 @@ Manager/HOD, HRBP-scoped, L&D specialist, Clinic nurse, Finance approver,
 Recruiter) as additional views over this same `store.js` data — the role
 enum and data model already anticipate this, so it's additive, not a
 rebuild.
+
+## 11. Post-review rework: drawers, richer creation forms, visible approval workflows
+
+Feedback after the first review: detail modals were too small to hold real
+information, creation used the same small modal and captured too little,
+and approval decisions were only a status flag — not a visible workflow.
+Also: LMS courses should be fetched from an external LMS, not authored here.
+
+**What changed:**
+
+- New `ui.drawer()` component — a large slide-over panel (720px, 920px for
+  `--xl`) with tabs, replacing small modals for both record detail views and
+  record creation across every approval-bearing module. Creation forms in
+  the drawer capture materially more (justification, delegate approver,
+  witnesses/evidence, incident dates, KPI weighting, etc.) than the old
+  modals did.
+- New `ui.workflowTimeline()` component renders a real audit trail — each
+  step shows stage, actor, actor role, action, comment and timestamp — fed
+  by a new `store.recordApproval(collection, id, step)` helper that appends
+  one completed step to a record's `approvalHistory` array atomically with
+  any status patch. Every approve/reject/forward action in the reworked
+  modules now goes through this, so "who approved what, when, with what
+  comment" is always visible, not inferred from a status badge.
+- Reworked with this pattern: Recruitment (requisitions now a two-stage
+  HRBP → Head of HR chain with optional delegate approver, plus candidate
+  pipeline), Disciplinary, Exit Management, Welfare (Employee Relations),
+  Performance/PIP (weighted KPI scoring), Interim & Confirmation Appraisals,
+  Medical Bills, Drug Requisition, Sick Leave, and Training Needs Analysis.
+- LMS: removed course authoring entirely (no "+ New course", no create
+  form). The catalog now carries `externalId`/`source`/`syncedAt` per
+  course and a page-level sync banner ("Synced from Fortunebolt Learning
+  Cloud, last synced …") sourced from a new `lmsSync` singleton in the seed
+  data. Course detail is now a drawer showing the same sync provenance.
+  Enrolling employees into synced courses remains an HR action and is
+  unchanged.
+- Fixed a real bug surfaced while building this: `wireTabs()` queried
+  `document` globally instead of the tabs' own root element, so clicking a
+  tab inside a drawer could hide an unrelated tab panel on the underlying
+  page. Scoped the query to the root; verified fixed via Playwright.
+
+Re-verified with a full 25-page crawl (zero console/page errors) plus
+targeted Playwright runs exercising drawer open/close, tab switching, and
+full approve → next-stage cycles on Recruitment, Disciplinary,
+Performance/PIP, Drug Requisition and LMS.

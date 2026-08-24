@@ -133,6 +133,27 @@
   function cadreName(id) { const c = cadre(id); return c ? c.name : ''; }
   function currentUser() { init(); return employee(data.currentUserId); }
 
+  // Appends one completed step to a record's approval audit trail and (optionally) patches
+  // its other fields in the same write — the single place every workflow action goes through
+  // so "who did what, when" is never just inferred from a status flag.
+  function recordApproval(collection, id, step) {
+    const record = getById(collection, id);
+    if (!record) return null;
+    const actorEmp = step.actorId ? employee(step.actorId) : currentUser();
+    const entry = {
+      stage: step.stage,
+      actor: step.actor || (actorEmp ? `${actorEmp.firstName} ${actorEmp.lastName}` : 'System'),
+      actorRole: step.actorRole !== undefined ? step.actorRole : (actorEmp ? actorEmp.jobTitle : ''),
+      action: step.action || step.stage,
+      comment: step.comment || '',
+      timestamp: new Date().toISOString(),
+      status: step.status || 'done'
+    };
+    const history = (record.approvalHistory || []).concat([entry]);
+    const patch = Object.assign({ approvalHistory: history }, step.patch || {});
+    return update(collection, id, patch);
+  }
+
   function notify(title, body, module, link) {
     const record = insert('notifications', { title, body, module, link: link || '#', read: false });
     global.FB.events.emit('notification:new', record);
@@ -158,6 +179,6 @@
   global.FB.store = {
     init, reset, all, get, setSingleton, getById, find, findOne, insert, update, remove, nextId,
     employee, employeeName, department, departmentName, hrUnit, cadre, cadreName, currentUser,
-    notify, auditLog, unreadNotificationCount, markNotificationRead, markAllNotificationsRead
+    recordApproval, notify, auditLog, unreadNotificationCount, markNotificationRead, markAllNotificationsRead
   };
 })(window);
